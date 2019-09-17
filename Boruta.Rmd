@@ -1,0 +1,56 @@
+---
+title: "Boruta"
+output: html_document
+---
+
+```{r message=FALSE}
+
+#install.packages("aod")
+#install.packages("Boruta")
+#install.packages("devtools")
+#install.packages("survival", repos = "https://cran.r-project.org")
+#install.packages("ggplot2")
+#devtools::install_github("sachsmc/ggkm")
+
+library(Boruta)
+library(readxl)
+library(dplyr)
+library(randomForest)
+library(caret)
+library(mice)
+library(aod)
+library(nnet)
+library(survival)
+library(ggkm)
+library(ggplot2)
+library(ROCR)
+
+```
+
+``` {r}
+data.tr.smp <- read.csv("data-tr-smp.csv", header=T, strip.white = T, na.strings = c("NA","NaN","","?"))
+
+```
+
+## Boruta - 1 with all the variables
+
+```{r }
+boruta <- Boruta(data.tr.smp$`Hired/NotHired`~., data = data.tr.smp, doTrace = 2)
+
+print(boruta)
+
+```
+
+## Importance Plot from Boruta
+
+```{r }
+
+plot(boruta, xlab = "", xaxt = "n")
+lz<-lapply(1:ncol(boruta$ImpHistory),function(i)
+  boruta$ImpHistory[is.finite(boruta$ImpHistory[,i]),i])
+names(lz) <- colnames(boruta$ImpHistory)
+Labels <- sort(sapply(lz,median))
+axis(side = 1,las=2,labels = names(Labels),
+     at = 1:ncol(boruta$ImpHistory), cex.axis = 0.7)
+
+```

@@ -1,0 +1,90 @@
+---
+title: "Survival Analysis"
+output: html_document
+---
+
+```{r message=FALSE}
+
+#install.packages("aod")
+#install.packages("Boruta")
+#install.packages("devtools")
+#install.packages("survival", repos = "https://cran.r-project.org")
+#install.packages("ggplot2")
+#devtools::install_github("sachsmc/ggkm")
+
+library(Boruta)
+library(readxl)
+library(dplyr)
+library(randomForest)
+library(caret)
+library(mice)
+library(aod)
+library(nnet)
+library(survival)
+library(ggkm)
+library(ggplot2)
+library(ROCR)
+
+
+```
+
+``` {r}
+
+myrawdata <- read.csv("myrawdata.csv", header=T, strip.white = T, na.strings = c("NA","NaN","","?"))
+
+colnames(myrawdata)
+```
+
+## Survival analysis
+
+```{r }
+
+surv.data <- myrawdata %>% select ("Hired.NotHired","Finalized_HHUSA_revised_resume_on_file__c","Status__c", "MyTrak_VTS_Assigned__c", "DaystoHire.Created.Hired.")
+
+colnames(surv.data)[colnames(surv.data) ==  'Hired.NotHired'] <- 'Hired.Flag'
+
+colnames(surv.data)[colnames(surv.data) ==  'DaystoHire.Created.Hired.'] <- 'DaysToHire'
+
+ colnames(surv.data)[colnames(surv.data) ==  'Finalized_HHUSA_revised_resume_on_file__c'] <- 'Resume_Created_Revised'
+colnames(surv.data)[colnames(surv.data) ==  'MyTrak_VTS_Assigned__c'] <- 'Connected_To_Transition_Specialist'
+
+mice <- mice(surv.data[,],m=1,maxit=5,meth='pmm')
+
+comsurvData <- complete(mice,1)
+
+comsurvData$Hired.Flag <- ifelse(surv.data$Hired.Flag =='Not Hired', 0, 1)
+
+comsurvData$Finalized_HHUSA_revised_resume_on_file__c <- as.factor(comsurvData$Resume_Created_Revised)
+
+comsurvData$Connected_To_Transition_Specialist <- as.factor(comsurvData$Connected_To_Transition_Specialist)
+
+comsurvData$Status__c <- as.factor(comsurvData$Status__c)
+
+summary(comsurvData)
+
+#Limiting the max days days to hire in analysis to 1000
+
+comsurvData <- comsurvData %>% 
+  filter(Hired.Flag == "1") %>% 
+  filter(DaysToHire < 1000)
+
+suranl <- survfit(Surv(as.numeric(comsurvData$DaysToHire),
+                       comsurvData$Hired.Flag)~comsurvData$Resume_Created_Revised)
+
+# Survival analysis for the field Resume_Created_Revised
+summary(suranl)
+
+ggplot(comsurvData, aes(time = DaysToHire, 
+                        status = Hired.Flag, 
+                        color = factor(Resume_Created_Revised))) + geom_km()
+
+# Survival analysis for the field Connected_To_Transition_Specialist
+suranl2 <- survfit(Surv(as.numeric(comsurvData$DaysToHire),comsurvData$Hired.Flag)~comsurvData$Resume_Created_Revised)
+
+summary(suranl2)
+
+ggplot(comsurvData, aes(time = DaysToHire, status = Hired.Flag, 
+                        color = factor(Connected_To_Transition_Specialist))) + geom_km()
+
+
+```

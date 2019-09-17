@@ -1,0 +1,241 @@
+---
+title: "MoreModels"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(caret)
+library(readxl)
+library(dplyr)
+library(randomForest)
+library(mice)
+library(nnet)
+library(ggplot2)
+library(ROCR)
+
+```
+
+``` {r}
+
+train_data <- read.csv("train_data.csv", header=T, strip.white = T, na.strings = c("NA","NaN","","?"))
+
+test_data <- read.csv("test_data.csv", header=T, strip.white = T, na.strings = c("NA","NaN","","?"))
+
+```
+
+#after train test division
+
+``` {r}
+
+outcomeName <- c('Hired.NotHired')
+predictorsNames <- colnames(train_data)[colnames(train_data) != 'Hired.NotHired']
+
+```
+
+#GBM
+
+``` {r}
+#Accuracy : 0.8577  ,
+gbmModel <- train(`Hired.NotHired`~., data=train_data, method='gbm')
+
+objControl <- trainControl(method='cv', number=3, returnResamp='none', summaryFunction = twoClassSummary)
+
+predicted_values <- predict(gbmModel, test_data)
+confusionMatrix(predicted_values, test_data$'Hired.NotHired', 
+                positive = levels(test_data$'Hired.NotHired')[1]) 
+
+predicted_values <- predict(gbmModel, test_data,type= "prob")[,2] 
+pred <- prediction(predicted_values, test_data$'Hired.NotHired')
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+
+roc.data <- data.frame(fpr=unlist(perf@x.values),
+                       tpr=unlist(perf@y.values),
+                       model="RF")
+ggplot(roc.data, aes(x=fpr, ymin=0, ymax=tpr)) +
+  geom_ribbon(alpha=0.2) +
+  geom_line(aes(y=tpr)) +
+  ggtitle(paste0("ROC Curve w/ AUC=", auc))
+
+```
+
+#GLMNET
+
+``` {r}
+attach(train_data)
+objControl <- trainControl(method='cv', number=3, returnResamp='none')
+GLMnet <- train(`Hired.NotHired`~., data=train_data, method='glmnet', trControl=objControl)
+predicted_values <- predict(object=GLMnet, test_data[,predictorsNames])
+confusionMatrix(predicted_values, test_data$'Hired.NotHired', 
+                positive = levels(test_data$'Hired.NotHired')[1]) 
+
+predicted_values <- predict(GLMnet, test_data,type= "prob")[,2] 
+pred <- prediction(predicted_values, test_data$'Hired.NotHired')
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+
+roc.data <- data.frame(fpr=unlist(perf@x.values),
+                       tpr=unlist(perf@y.values),
+                       model="RF")
+ggplot(roc.data, aes(x=fpr, ymin=0, ymax=tpr)) +
+  geom_ribbon(alpha=0.2) +
+  geom_line(aes(y=tpr)) +
+  ggtitle(paste0("ROC Curve w/ AUC=", auc))
+
+```
+
+
+
+# Naive Bayes
+
+``` {r}
+
+attach(train_data)
+NaiveBayes <- train(`Hired.NotHired`~., data=train_data,'nb',trControl=trainControl(method='cv',number=10))
+predicted_values <- predict(object=NaiveBayes, test_data)
+confusionMatrix(predicted_values, test_data$'Hired.NotHired', 
+                positive = levels(test_data$'Hired.NotHired')[1]) 
+
+predicted_values <- predict(NaiveBayes, test_data,type= "prob")[,2] 
+pred <- prediction(predicted_values, test_data$'Hired.NotHired')
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+
+roc.data <- data.frame(fpr=unlist(perf@x.values),
+                       tpr=unlist(perf@y.values),
+                       model="RF")
+ggplot(roc.data, aes(x=fpr, ymin=0, ymax=tpr)) +
+  geom_ribbon(alpha=0.2) +
+  geom_line(aes(y=tpr)) +
+  ggtitle(paste0("ROC Curve w/ AUC=", auc))
+
+```
+
+#Neural Networks
+
+``` {r}
+annfit <- nnet(train_data$`Hired.NotHired`~ ., data=train_data, 
+               size=3, maxit=1000)
+
+print(annfit)
+
+predicted_values <- predict(annfit, test_data)
+pred <- prediction(predicted_values, test_data$'Hired.NotHired')
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+
+roc.data <- data.frame(fpr=unlist(perf@x.values),
+                       tpr=unlist(perf@y.values),
+                       model="RF")
+ggplot(roc.data, aes(x=fpr, ymin=0, ymax=tpr)) +
+  geom_ribbon(alpha=0.2) +
+  geom_line(aes(y=tpr)) +
+  ggtitle(paste0("ROC Curve w/ AUC=", auc))
+
+```
+
+
+#RF defaults
+
+``` {r}
+#Accuracy - 0.9065
+#AUC - 0.9195
+
+rf <- randomForest(train_data$`Hired.NotHired`~., data=train_data,
+                   na.action=na.exclude, 
+                   importance=T,
+                   proximity=F)
+
+library(ROCR)
+predicted_values <- predict(rf, test_data,type= "prob")[,2]
+pred <- prediction(predicted_values, test_data$`Hired.NotHired`)
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+
+roc.data <- data.frame(fpr=unlist(perf@x.values),
+                       tpr=unlist(perf@y.values),
+                       model="RF")
+ggplot(roc.data, aes(x=fpr, ymin=0, ymax=tpr)) +
+  geom_ribbon(alpha=0.2) +
+  geom_line(aes(y=tpr)) +
+  ggtitle(paste0("ROC Curve w/ AUC=", auc))
+
+```
+
+
+#RF 120/5
+
+``` {r}
+
+Accuracy - 0.9065
+rf <- randomForest(train_data$`Hired.NotHired`~., data=train_data,
+                   na.action=na.exclude, mtry=5, ntree=120,
+                   importance=T,
+                   proximity=F)
+
+library(ROCR)
+predicted_values <- predict(rf, test_data,type= "prob")[,2]
+pred <- prediction(predicted_values, test_data$`Hired.NotHired`)
+perf <- performance(pred, measure = "tpr", x.measure = "fpr")
+auc <- performance(pred, measure = "auc")
+auc <- auc@y.values[[1]]
+
+roc.data <- data.frame(fpr=unlist(perf@x.values),
+                       tpr=unlist(perf@y.values),
+                       model="RF")
+ggplot(roc.data, aes(x=fpr, ymin=0, ymax=tpr)) +
+  geom_ribbon(alpha=0.2) +
+  geom_line(aes(y=tpr)) +
+  ggtitle(paste0("ROC Curve w/ AUC=", auc))
+
+```
+
+
+##Cross Validation and HyperParameter tuning - repeatedcv(10 folds)/mtry(7)
+
+``` {r}
+control <- trainControl(method='repeatedcv', 
+                        number=10, 
+                        repeats=3)
+#Metric compare model is Accuracy
+#Number randomely variable selected is mtry
+mtry <- c(3:10)
+tunegrid <- expand.grid(.mtry=mtry, .splitrule = c("gini", "extratrees"),
+                        .min.node.size = c(1, 3, 5))
+
+attach(train_data)
+rf_finetuned1 <- train(`Hired.NotHired`~., 
+                       data=train_data, 
+                       method='rf', 
+                       metric='Accuracy', 
+                       tuneGrid=tunegrid, 
+                       trControl=control)
+print(rf_finetuned1)
+
+```
+
+
+##Cross Validation and HyperParameter tuning - mtry = 7, splitrule = gini and min.node.size = 3
+
+``` {r}
+train.control <- trainControl(method='repeatedcv', 
+                              number=10, 
+                              repeats=3)
+
+rf_grid <- expand.grid(.mtry = c(6:9),
+                             .splitrule = c("gini", "extratrees"),
+                             .min.node.size = c(1, 3, 5))
+attach(train_data)
+rf_finetuned2 <- train(`Hired.NotHired`~ ., data = train_data,
+                       method = "ranger",
+                       trControl = train.control, tuneGrid = rf_grid,
+                       num.trees = 120)
+print(rf_finetuned2)
+```
+s
