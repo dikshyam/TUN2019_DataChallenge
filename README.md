@@ -1,11 +1,11 @@
-### Empower U.S. military members, veterans, and military spouses to succeed in the civilian workforce: Using an Analytical approach
+## Empower U.S. military members, veterans, and military spouses to succeed in the civilian workforce: Using an Analytical approach
 
 [Link to the Competition](https://www.teradatauniversitynetwork.com/Community/Student-Competitions/2019/2019-Data-Challenge)
 
 - Dikshya Mohanty
 - dmohanty@uncc.edu
 
-## Executive Summary
+### Executive Summary
 
 **Business Problem Statement**
 
