@@ -1,5 +1,6 @@
 ---
 title: "MoreModels"
+author: Dikshya Mohanty
 output: html_document
 ---
 
@@ -238,4 +239,3 @@ rf_finetuned2 <- train(`Hired.NotHired`~ ., data = train_data,
                        num.trees = 120)
 print(rf_finetuned2)
 ```
-s
